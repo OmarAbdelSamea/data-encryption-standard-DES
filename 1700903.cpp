@@ -3,6 +3,7 @@
 #include <sstream>
 #include <bitset>
 #include <algorithm>
+#include <vector>
 
 std::string hex_to_binary(std::string hex_string)
 {
@@ -16,17 +17,17 @@ std::string hex_to_binary(std::string hex_string)
 
 std::string binary_to_hex(std::string binary_string)
 {
-    std::stringstream strs;
-    strs << std::hex << std::stoll(binary_string);
-    std::string num;
-    strs >> num;
-    return num;
+    std::stringstream ss;
+    ss << std::hex << std::stoull(binary_string, NULL, 2);
+    std::string s = ss.str();
+    std::transform(s.begin(), s.end(), s.begin(), std::ptr_fun<int, int>(std::toupper));
+    return s;
 }
 
-std::string permutate(std::string str_binary, int permutation[])
+std::string permutate(std::string str_binary, int permutation[], int new_size)
 {
     std::string permuted_str_binary;
-    for (size_t i = 0; i < str_binary.length(); i++)
+    for (size_t i = 0; i < new_size; i++)
         permuted_str_binary.push_back(str_binary[permutation[i] - 1]);
 
     return permuted_str_binary;
@@ -43,7 +44,7 @@ std::string permutate_init(std::string plain_text_binary)
                                    61, 53, 45, 37, 29, 21, 13, 5,
                                    63, 55, 47, 39, 31, 23, 15, 7};
 
-    return permutate(plain_text_binary, initial_permutation);
+    return permutate(plain_text_binary, initial_permutation, 64);
 }
 
 std::string permutate_choice_1(std::string key_64_bit)
@@ -57,7 +58,7 @@ std::string permutate_choice_1(std::string key_64_bit)
                                     14, 6, 61, 53, 45, 37, 29,
                                     21, 13, 5, 28, 20, 12, 4};
 
-    return permutate(key_64_bit, choice_1_permutation);
+    return permutate(key_64_bit, choice_1_permutation, 56);
 }
 
 std::string permutate_choice_2(std::string key_64_bit)
@@ -71,7 +72,7 @@ std::string permutate_choice_2(std::string key_64_bit)
                                     44, 49, 39, 56, 34, 53,
                                     46, 42, 50, 36, 29, 32};
 
-    return permutate(key_64_bit, choice_2_permutation);
+    return permutate(key_64_bit, choice_2_permutation, 48);
 }
 
 std::string shift_left_reversal(std::string str, int shift_amount)
@@ -85,14 +86,10 @@ std::string shift_left_reversal(std::string str, int shift_amount)
 
 std::string key_compress_48_bit(std::string key_56_bit, int shift_amount)
 {
+    shift_left_reversal(key_56_bit, shift_amount);
+    shift_left_reversal(key_56_bit, shift_amount);
 
-    std::string key_28_left = key_56_bit.substr(0, key_56_bit.length() / 2);
-    std::string key_28_right = key_56_bit.substr(key_56_bit.length() / 2);
-
-    shift_left_reversal(key_28_left, shift_amount);
-    shift_left_reversal(key_28_right, shift_amount);
-
-    return permutate_choice_2(key_28_left + key_28_right);
+    return permutate_choice_2(key_56_bit + key_56_bit);
 }
 
 std::string text_expand_48_bits(std::string right_plain_text)
@@ -104,13 +101,20 @@ std::string text_expand_48_bits(std::string right_plain_text)
                                      22, 23, 24, 25, 24, 25, 26, 27,
                                      28, 29, 28, 29, 30, 31, 32, 1};
 
-    return permutate(right_plain_text, expansion_permutation);
+    return permutate(right_plain_text, expansion_permutation, 48);
 }
 
-std::string key_xor_rpt_48_bits(std::string key_48, std::string rpt_48)
+std::string xor_48_binary(std::string num_1, std::string num_2)
 {
-    std::bitset<64> key_48_binary(key_48), rpt_48_binary(rpt_48);
-    std::bitset<64> result = key_48_binary ^ rpt_48_binary;
+    std::bitset<48> num_1_binary(num_1), num_2_binary(num_2);
+    std::bitset<48> result = num_1_binary ^ num_2_binary;
+    return result.to_string();
+}
+
+std::string xor_32_binary(std::string num_1, std::string num_2)
+{
+    std::bitset<32> num_1_binary(num_1), num_2_binary(num_2);
+    std::bitset<32> result = num_1_binary ^ num_2_binary;
     return result.to_string();
 }
 
@@ -172,39 +176,90 @@ std::string after_s_box_permutate(std::string s_box_output)
                            19, 13, 30, 6,
                            22, 11, 4, 25};
 
-    return permutate(s_box_output, permutation);
+    return permutate(s_box_output, permutation, 32);
+}
+
+std::string permutate_final(std::string str)
+{
+    int final_perm[64] = {40, 8, 48, 16, 56, 24, 64, 32,
+                          39, 7, 47, 15, 55, 23, 63, 31,
+                          38, 6, 46, 14, 54, 22, 62, 30,
+                          37, 5, 45, 13, 53, 21, 61, 29,
+                          36, 4, 44, 12, 52, 20, 60, 28,
+                          35, 3, 43, 11, 51, 19, 59, 27,
+                          34, 2, 42, 10, 50, 18, 58, 26,
+                          33, 1, 41, 9, 49, 17, 57, 25};
+
+    return permutate(str, final_perm, 64);
 }
 
 std::string encrypt(std::string data, std::vector<std::string> keys_binary, std::vector<std::string> keys)
 {
     data = hex_to_binary(data);
-    permutate_init(data);
-    std::cout << "After initial permutation: " << binary_to_hex(data) << '\n';
+    data = permutate_init(data);
 
     std::string data_left = data.substr(0, 32);
     std::string data_right = data.substr(32, 32);
 
-    
+    for (size_t i = 0; i < 16; i++)
+    {
+        std::string data_right_expanded = text_expand_48_bits(data_right);
+
+        std::string key_rpt_xor_res = xor_48_binary(keys_binary[i], data_right_expanded);
+        std::string s_box_result = s_box(key_rpt_xor_res);
+        std::string s_box_permutation = after_s_box_permutate(s_box_result);
+        data_left = xor_32_binary(s_box_permutation, data_left);
+        if (i != 15)
+        {
+            std::swap(data_left, data_right);
+        }
+    }
+
+    std::string combine = data_left + data_right;
+    std::string cipher = permutate_final(combine);
+    return cipher;
 }
 int main(int argc, char *argv[])
 {
 
-    int shift_table[16] = { 1, 1, 2, 2,
-                            2, 2, 2, 2,
-                            1, 2, 2, 2,
-                            2, 2, 2, 1 };
+    int shift_table[16] = {1, 1, 2, 2,
+                           2, 2, 2, 2,
+                           1, 2, 2, 2,
+                           2, 2, 2, 1};
 
-    // std::string operation = argv[1], data = argv[2], key = argv[3];
-    std::string operation = "encrypt", data = "123", key = "1233445A6D788381";
+    std::string operation = argv[1], data = argv[2], key = argv[3];
+    // std::string operation = "encrypt", data = "7A6C731D22347676", key = "1323445A6D788381";
     std::string key_64_bits = hex_to_binary(key);
     std::string key_56_bits = permutate_choice_1(key_64_bits);
 
+    std::string key_28_left = key_56_bits.substr(0, 28);
+    std::string key_28_right = key_56_bits.substr(28);
+
     std::vector<std::string> rkb; // rkb for RoundKeys in binary
-    std::vector<std::string> rk; // rk for RoundKeys in hexadecimal
-    for (int i = 0; i < 16; i++) {
-        std::string key_48_bit = key_compress_48_bit(key_56_bits, shift_table[i]);
+    std::vector<std::string> rk;  // rk for RoundKeys in hexadecimal
+    for (int i = 0; i < 16; i++)
+    {
+        key_28_left = shift_left_reversal(key_28_left, shift_table[i]);
+        key_28_right = shift_left_reversal(key_28_right, shift_table[i]);
+        
+        std::string key_48_bit = permutate_choice_2(key_28_left + key_28_right);
+
         rkb.push_back(key_48_bit);
         rk.push_back(binary_to_hex(key_48_bit));
+    }
+
+    if (operation == "encrypt")
+    {
+        std::string cipher = encrypt(data, rkb, rk);
+        std::cout << "cipher: " << binary_to_hex(cipher) << '\n';
+    }
+
+    if (operation == "decrypt")
+    {
+        reverse(rkb.begin(), rkb.end());
+        reverse(rk.begin(), rk.end());
+        std::string text = encrypt(data, rkb, rk);
+        std::cout << "plain: " << binary_to_hex(text) << '\n';
     }
 
     return 0;
