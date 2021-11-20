@@ -228,15 +228,14 @@ int main(int argc, char *argv[])
                            2, 2, 2, 1};
 
     std::string operation = argv[1], data = argv[2], key = argv[3];
-    // std::string operation = "encrypt", data = "7A6C731D22347676", key = "1323445A6D788381";
     std::string key_64_bits = hex_to_binary(key);
     std::string key_56_bits = permutate_choice_1(key_64_bits);
 
     std::string key_28_left = key_56_bits.substr(0, 28);
     std::string key_28_right = key_56_bits.substr(28);
 
-    std::vector<std::string> rkb; // rkb for RoundKeys in binary
-    std::vector<std::string> rk;  // rk for RoundKeys in hexadecimal
+    std::vector<std::string> round_keys_binary; 
+    std::vector<std::string> round_keys; 
     for (int i = 0; i < 16; i++)
     {
         key_28_left = shift_left_reversal(key_28_left, shift_table[i]);
@@ -244,21 +243,21 @@ int main(int argc, char *argv[])
         
         std::string key_48_bit = permutate_choice_2(key_28_left + key_28_right);
 
-        rkb.push_back(key_48_bit);
-        rk.push_back(binary_to_hex(key_48_bit));
+        round_keys_binary.push_back(key_48_bit);
+        round_keys.push_back(binary_to_hex(key_48_bit));
     }
 
     if (operation == "encrypt")
     {
-        std::string cipher = encrypt(data, rkb, rk);
+        std::string cipher = encrypt(data, round_keys_binary, round_keys);
         std::cout << "cipher: " << binary_to_hex(cipher) << '\n';
     }
 
     if (operation == "decrypt")
     {
-        reverse(rkb.begin(), rkb.end());
-        reverse(rk.begin(), rk.end());
-        std::string text = encrypt(data, rkb, rk);
+        reverse(round_keys_binary.begin(), round_keys_binary.end());
+        reverse(round_keys.begin(), round_keys.end());
+        std::string text = encrypt(data, round_keys_binary, round_keys);
         std::cout << "plain: " << binary_to_hex(text) << '\n';
     }
 
